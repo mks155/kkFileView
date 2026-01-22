@@ -1,28 +1,48 @@
-FROM ubuntu:24.04
+FROM ac2-registry.cn-hangzhou.cr.aliyuncs.com/ac2/base:ubuntu24.04
 
-RUN sed -i 's@//.*archive.ubuntu.com@//mirrors.aliyun.com@g' /etc/apt/sources.list.d/ubuntu.sources &&\
-    sed -i 's@//security.ubuntu.com@//mirrors.aliyun.com@g' /etc/apt/sources.list.d/ubuntu.sources &&\
-    sed -i 's@//ports.ubuntu.com@//mirrors.aliyun.com@g' /etc/apt/sources.list.d/ubuntu.sources &&\
-	apt-get update &&\
-    export DEBIAN_FRONTEND=noninteractive &&\
-	apt-get install -y --no-install-recommends openjdk-21-jre tzdata locales xfonts-utils fontconfig libreoffice-nogui &&\
-    echo 'Asia/Shanghai' > /etc/timezone &&\
-    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime &&\
-    localedef -i zh_CN -c -f UTF-8 -A /usr/share/locale/locale.alias zh_CN.UTF-8 &&\
-    locale-gen zh_CN.UTF-8 &&\
-    apt-get install -y --no-install-recommends ttf-mscorefonts-installer &&\
-    apt-get install -y --no-install-recommends ttf-wqy-microhei ttf-wqy-zenhei xfonts-wqy &&\
-	apt-get autoremove -y &&\
-    apt-get clean &&\
+# 1. 配置镜像源为清华大学TUNA源
+RUN sed -i 's|http://.*|http://mirrors.tuna.tsinghua.edu.cn/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+
+# 2. 更新包列表（验证源是否可用）
+RUN apt-get update
+
+# 3. 安装基础软件包
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get install -y --no-install-recommends \
+    openjdk-21-jre \
+    tzdata \
+    locales \
+    xfonts-utils \
+    fontconfig \
+    libreoffice-nogui
+
+# 4. 配置时区
+RUN echo 'Asia/Shanghai' > /etc/timezone && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+# 5. 配置locale
+RUN localedef -i zh_CN -c -f UTF-8 -A /usr/share/locale/locale.alias zh_CN.UTF-8 && \
+    locale-gen zh_CN.UTF-8
+
+# 6. 安装字体相关软件包
+RUN apt-get install -y --no-install-recommends \
+    ttf-mscorefonts-installer \
+    ttf-wqy-microhei \
+    ttf-wqy-zenhei \
+    xfonts-wqy
+
+# 7. 清理
+RUN apt-get autoremove -y && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 内置一些常用的中文字体，避免普遍性乱码
+# 8. 添加自定义字体
 ADD fonts/* /usr/share/fonts/chinese/
 
-RUN cd /usr/share/fonts/chinese &&\
-    # 安装字体
-    mkfontscale &&\
-    mkfontdir &&\
+# 9. 生成字体缓存
+RUN mkfontscale /usr/share/fonts/chinese && \
+    mkfontdir /usr/share/fonts/chinese && \
     fc-cache -fv
 
+# 10. 设置环境变量
 ENV LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
